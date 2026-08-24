@@ -3,6 +3,7 @@ import * as Schema from "effect/Schema";
 
 import { ProviderInstanceId } from "./providerInstance.ts";
 import {
+  ClaudeSettings,
   ClientSettingsSchema,
   ClientSettingsPatch,
   DEFAULT_SERVER_SETTINGS,
@@ -16,6 +17,7 @@ const decodeClientSettingsPatch = Schema.decodeUnknownSync(ClientSettingsPatch);
 const decodeServerSettings = Schema.decodeUnknownSync(ServerSettings);
 const decodeServerSettingsPatch = Schema.decodeUnknownSync(ServerSettingsPatch);
 const encodeServerSettings = Schema.encodeSync(ServerSettings);
+const decodeClaudeSettings = Schema.decodeUnknownSync(ClaudeSettings);
 const decodePhiSettings = Schema.decodeUnknownSync(PhiSettings);
 
 describe("ClientSettings word wrap", () => {
@@ -176,6 +178,21 @@ describe("ServerSettings.providerInstances (slice-2 invariant)", () => {
         providerInstances: { "1bad": { driver: "codex" } },
       }),
     ).toThrow();
+  });
+});
+
+describe("ClaudeSettings", () => {
+  it("defaults user-installed plugin loading off", () => {
+    expect(decodeClaudeSettings({}).loadUserPlugins).toBe(false);
+    expect(decodeServerSettings({}).providers.claudeAgent.loadUserPlugins).toBe(false);
+  });
+
+  it("accepts user-installed plugin loading updates", () => {
+    expect(
+      decodeServerSettingsPatch({
+        providers: { claudeAgent: { loadUserPlugins: true } },
+      }).providers?.claudeAgent?.loadUserPlugins,
+    ).toBe(true);
   });
 });
 

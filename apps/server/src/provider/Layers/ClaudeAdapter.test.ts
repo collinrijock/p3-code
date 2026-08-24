@@ -400,6 +400,119 @@ describe("ClaudeAdapterLive", () => {
     );
   });
 
+  it.effect("does not load installed plugins when the Claude setting is off", () => {
+    const baseDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "claude-plugins-off-"));
+    const configDir = NodePath.join(baseDir, "claude-home");
+    const pluginDir = NodePath.join(baseDir, "plugin");
+    NodeFS.mkdirSync(NodePath.join(configDir, "plugins"), { recursive: true });
+    NodeFS.mkdirSync(pluginDir, { recursive: true });
+    NodeFS.writeFileSync(
+      NodePath.join(configDir, "settings.json"),
+      JSON.stringify({ enabledPlugins: { "review@marketplace": true } }),
+    );
+    NodeFS.writeFileSync(
+      NodePath.join(configDir, "plugins", "installed_plugins.json"),
+      JSON.stringify({
+        version: 2,
+        plugins: { "review@marketplace": [{ installPath: pluginDir }] },
+      }),
+    );
+    const harness = makeHarness({
+      claudeConfig: { homePath: configDir, loadUserPlugins: false },
+    });
+
+    return Effect.gen(function* () {
+      const adapter = yield* ClaudeAdapter;
+      yield* adapter.startSession({
+        threadId: THREAD_ID,
+        provider: ProviderDriverKind.make("claudeAgent"),
+        runtimeMode: "approval-required",
+      });
+
+      const createInput = harness.getLastCreateQueryInput();
+      assert.equal(createInput?.options.plugins, undefined);
+    }).pipe(
+      Effect.ensuring(
+        Effect.sync(() => {
+          NodeFS.rmSync(baseDir, { recursive: true, force: true });
+        }),
+      ),
+      Effect.provideService(Random.Random, makeDeterministicRandomService()),
+      Effect.provide(harness.layer),
+    );
+  });
+
+  it.effect("passes enabled user plugin directories to live SDK sessions", () => {
+    const baseDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "claude-plugins-on-"));
+    const configDir = NodePath.join(baseDir, "claude-home");
+    const pluginDir = NodePath.join(baseDir, "plugin");
+    NodeFS.mkdirSync(NodePath.join(configDir, "plugins"), { recursive: true });
+    NodeFS.mkdirSync(pluginDir, { recursive: true });
+    NodeFS.writeFileSync(
+      NodePath.join(configDir, "settings.json"),
+      JSON.stringify({ enabledPlugins: { "review@marketplace": true } }),
+    );
+    NodeFS.writeFileSync(
+      NodePath.join(configDir, "plugins", "installed_plugins.json"),
+      JSON.stringify({
+        version: 2,
+        plugins: { "review@marketplace": [{ installPath: pluginDir }] },
+      }),
+    );
+    const harness = makeHarness({
+      claudeConfig: { homePath: configDir, loadUserPlugins: true },
+    });
+
+    return Effect.gen(function* () {
+      const adapter = yield* ClaudeAdapter;
+      yield* adapter.startSession({
+        threadId: THREAD_ID,
+        provider: ProviderDriverKind.make("claudeAgent"),
+        runtimeMode: "approval-required",
+      });
+
+      const createInput = harness.getLastCreateQueryInput();
+      assert.deepEqual(createInput?.options.settingSources, ["user", "project", "local"]);
+      assert.deepEqual(createInput?.options.plugins, [{ type: "local", path: pluginDir }]);
+    }).pipe(
+      Effect.ensuring(
+        Effect.sync(() => {
+          NodeFS.rmSync(baseDir, { recursive: true, force: true });
+        }),
+      ),
+      Effect.provideService(Random.Random, makeDeterministicRandomService()),
+      Effect.provide(harness.layer),
+    );
+  });
+
+  it.effect("starts plugin-enabled sessions when plugin cache data is missing", () => {
+    const baseDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "claude-plugins-missing-"));
+    const configDir = NodePath.join(baseDir, "missing-claude-home");
+    const harness = makeHarness({
+      claudeConfig: { homePath: configDir, loadUserPlugins: true },
+    });
+
+    return Effect.gen(function* () {
+      const adapter = yield* ClaudeAdapter;
+      yield* adapter.startSession({
+        threadId: THREAD_ID,
+        provider: ProviderDriverKind.make("claudeAgent"),
+        runtimeMode: "approval-required",
+      });
+
+      const createInput = harness.getLastCreateQueryInput();
+      assert.equal(createInput?.options.plugins, undefined);
+    }).pipe(
+      Effect.ensuring(
+        Effect.sync(() => {
+          NodeFS.rmSync(baseDir, { recursive: true, force: true });
+        }),
+      ),
+      Effect.provideService(Random.Random, makeDeterministicRandomService()),
+      Effect.provide(harness.layer),
+    );
+  });
+
   it.effect("uses bypass permissions for full-access claude sessions", () => {
     const harness = makeHarness();
     return Effect.gen(function* () {

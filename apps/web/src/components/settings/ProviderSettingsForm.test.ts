@@ -37,6 +37,25 @@ describe("ProviderSettingsForm helpers", () => {
     });
   });
 
+  it("exposes Claude user plugin loading as an opt-in security control", () => {
+    const claude = DRIVER_OPTION_BY_VALUE[ProviderDriverKind.make("claudeAgent")];
+    expect(claude).toBeDefined();
+
+    const fields = deriveProviderSettingsFields(claude!);
+    expect(fields.map((field) => field.key)).toEqual([
+      "binaryPath",
+      "homePath",
+      "loadUserPlugins",
+      "launchArgs",
+    ]);
+    expect(fields.find((field) => field.key === "loadUserPlugins")).toMatchObject({
+      control: "switch",
+      defaultBooleanValue: false,
+      label: "Load user-installed plugins",
+      description: expect.stringContaining("Only enable plugins you trust"),
+    });
+  });
+
   it("exposes Phi binary and config path settings", () => {
     const phi = DRIVER_OPTION_BY_VALUE[ProviderDriverKind.make("phi")];
 
