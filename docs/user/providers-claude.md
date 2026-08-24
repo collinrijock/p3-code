@@ -41,6 +41,17 @@ T3 Code looks for Claude skills in the Claude config directory's `skills` folder
 
 If the same skill name exists in more than one folder, the later folder wins.
 
+## Load User-Installed Plugins
+
+Claude Code marketplace plugins are off by default in T3 Code. To use the plugins enabled in the
+provider's Claude config directory, turn on **Load user-installed plugins** in that Claude
+provider's settings, then start a new session.
+
+This passes each enabled local plugin install to the Claude Agent SDK. A plugin can add skills,
+connect MCP servers, and run hooks with your user permissions. Only enable this setting when you
+trust every enabled plugin. Missing or stale plugin cache entries are skipped and do not block the
+session.
+
 ## I Want Work And Personal Claude Accounts
 
 Use a different Claude config directory for each account.
