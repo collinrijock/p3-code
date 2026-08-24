@@ -594,8 +594,7 @@ export function makePhiAdapter(phiSettings: PhiSettings, options?: PhiAdapterOpt
       if (
         input.modelSelection !== undefined &&
         (input.modelSelection.instanceId !== boundInstanceId ||
-          (context.session.model !== undefined &&
-            input.modelSelection.model !== context.session.model))
+          input.modelSelection.model !== context.session.model)
       ) {
         return yield* new ProviderAdapterValidationError({
           provider: PROVIDER,
