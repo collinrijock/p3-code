@@ -36,7 +36,6 @@ import type {
 import { phiBinaryCandidates, withPhiHome } from "./PhiProvider.ts";
 import {
   makePhiRpcTransport,
-  PhiRpcMalformedFrameError,
   type PhiRpcFailure,
   type PhiRpcResponse,
   type PhiRpcTransport,
@@ -557,9 +556,7 @@ export function makePhiAdapter(phiSettings: PhiSettings, options?: PhiAdapterOpt
             provider: PROVIDER,
             providerInstanceId: boundInstanceId,
             threadId: input.threadId,
-            payload: {
-              ...(identity.sessionId ? { providerThreadId: identity.sessionId } : {}),
-            },
+            payload: identity.sessionId ? { providerThreadId: identity.sessionId } : {},
           });
           return session;
         }),
@@ -614,7 +611,7 @@ export function makePhiAdapter(phiSettings: PhiSettings, options?: PhiAdapterOpt
         providerInstanceId: boundInstanceId,
         threadId: input.threadId,
         turnId,
-        payload: { ...(context.session.model ? { model: context.session.model } : {}) },
+        payload: context.session.model ? { model: context.session.model } : {},
       });
 
       yield* context.transport.request({ type: "prompt", message: prompt }).pipe(

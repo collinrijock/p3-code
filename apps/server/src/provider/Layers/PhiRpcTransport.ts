@@ -293,7 +293,7 @@ export const makePhiRpcTransport = Effect.fn("makePhiRpcTransport")(function* (
       const written = yield* writeLock.withPermit(
         Stream.run(Stream.make(frame), child.stdin).pipe(
           Effect.as(true),
-          Effect.catch(() => Effect.succeed(false)),
+          Effect.orElseSucceed(() => false),
         ),
       );
       if (!written) {

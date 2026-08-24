@@ -33,7 +33,7 @@ export interface FakePhiSpawner {
 }
 
 export const makeFakePhiSpawner = Effect.fn("makeFakePhiSpawner")(function* () {
-  const children: Array<FakePhiChild> = [];
+  const children = yield* Effect.sync(() => new Array<FakePhiChild>());
   let pid = 100;
 
   const service = ChildProcessSpawner.make((command) =>
@@ -140,7 +140,7 @@ export const makeFakePhiSpawner = Effect.fn("makeFakePhiSpawner")(function* () {
         crash: finish,
       };
       children.push(child);
-      yield* Effect.addFinalizer(() => handle.kill());
+      yield* Effect.addFinalizer(() => handle.kill().pipe(Effect.ignore));
       return handle;
     }),
   );
