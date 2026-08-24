@@ -19,6 +19,7 @@ import * as Scope from "effect/Scope";
 import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 import * as SynchronizedRef from "effect/SynchronizedRef";
+import { ChildProcessSpawner } from "effect/unstable/process";
 
 import { ServerConfig } from "../../config.ts";
 import {
@@ -76,7 +77,7 @@ export interface PhiAdapterOptions {
 }
 
 function parseResumeCursor(raw: unknown): PhiResumeCursor | undefined {
-  if (!Predicate.isRecord(raw) || raw.schemaVersion !== PHI_RESUME_VERSION) return undefined;
+  if (!Predicate.isObject(raw) || raw.schemaVersion !== PHI_RESUME_VERSION) return undefined;
   if (typeof raw.sessionPath !== "string" || raw.sessionPath.trim().length === 0) return undefined;
   return {
     schemaVersion: PHI_RESUME_VERSION,
@@ -91,7 +92,7 @@ function parseStateIdentity(data: unknown): {
   readonly sessionId?: string;
   readonly sessionPath?: string;
 } {
-  if (!Predicate.isRecord(data)) return {};
+  if (!Predicate.isObject(data)) return {};
   return {
     ...(typeof data.sessionId === "string" && data.sessionId.trim().length > 0
       ? { sessionId: data.sessionId.trim() }
@@ -103,7 +104,7 @@ function parseStateIdentity(data: unknown): {
 }
 
 function safeTransportDetail(error: PhiRpcFailure): string {
-  return PhiRpcMalformedFrameError.is(error)
+  return error._tag === "PhiRpcMalformedFrameError"
     ? "Phi RPC emitted a malformed protocol frame."
     : error.detail;
 }
@@ -135,6 +136,7 @@ export function makePhiAdapter(phiSettings: PhiSettings, options?: PhiAdapterOpt
   return Effect.gen(function* () {
     const boundInstanceId = options?.instanceId ?? ProviderInstanceId.make("phi");
     const serverConfig = yield* ServerConfig;
+    const childProcessSpawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     const runtimeEvents = yield* PubSub.unbounded<ProviderRuntimeEvent>();
     const sessions = new Map<ThreadId, PhiSessionContext>();
     const threadLocks = yield* SynchronizedRef.make(new Map<string, Semaphore.Semaphore>());
@@ -185,13 +187,17 @@ export function makePhiAdapter(phiSettings: PhiSettings, options?: PhiAdapterOpt
       patch: Partial<ProviderSession>,
       clearActiveTurn = false,
     ) {
-      const next = {
+      const next: ProviderSession = {
         ...context.session,
         ...patch,
         updatedAt: yield* nowIso,
-      } as ProviderSession & Record<string, unknown>;
-      if (clearActiveTurn) delete next.activeTurnId;
-      context.session = next;
+      };
+      if (clearActiveTurn) {
+        const { activeTurnId: _activeTurnId, ...withoutActiveTurn } = next;
+        context.session = withoutActiveTurn;
+      } else {
+        context.session = next;
+      }
     });
 
     const completeTextItems = Effect.fn("PhiAdapter.completeTextItems")(function* (
@@ -257,7 +263,7 @@ export function makePhiAdapter(phiSettings: PhiSettings, options?: PhiAdapterOpt
       const turnId = context.activeTurnId;
       if (event.type === "message_update" && turnId) {
         const assistantEvent = event.assistantMessageEvent;
-        if (!Predicate.isRecord(assistantEvent)) return;
+        if (!Predicate.isObject(assistantEvent)) return;
         const contentIndex =
           typeof assistantEvent.contentIndex === "number" &&
           Number.isInteger(assistantEvent.contentIndex)
@@ -452,6 +458,7 @@ export function makePhiAdapter(phiSettings: PhiSettings, options?: PhiAdapterOpt
             launchArgs,
           }).pipe(
             Effect.provideService(Scope.Scope, sessionScope),
+            Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, childProcessSpawner),
             Effect.mapError(
               (cause) =>
                 new ProviderAdapterProcessError({
@@ -473,7 +480,7 @@ export function makePhiAdapter(phiSettings: PhiSettings, options?: PhiAdapterOpt
             Effect.flatMap((response) => requireSuccessfulResponse(response, initializeMethod)),
             Effect.onError(() => Scope.close(sessionScope, Exit.void).pipe(Effect.ignore)),
           );
-          if (Predicate.isRecord(initialized.data) && initialized.data.cancelled === true) {
+          if (Predicate.isObject(initialized.data) && initialized.data.cancelled === true) {
             yield* Scope.close(sessionScope, Exit.void).pipe(Effect.ignore);
             return yield* new ProviderAdapterRequestError({
               provider: PROVIDER,

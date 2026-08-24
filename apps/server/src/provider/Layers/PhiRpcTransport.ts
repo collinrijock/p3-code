@@ -69,6 +69,8 @@ export interface PhiRpcTransportOptions {
 }
 
 const encoder = new TextEncoder();
+const decodeJson = Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
+const encodeJson = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
 function asResponse(value: PhiRpcEvent): PhiRpcResponse | undefined {
   if (
@@ -101,7 +103,7 @@ export const makePhiRpcTransport = Effect.fn("makePhiRpcTransport")(function* (
         const spawnCommand = yield* resolveSpawnCommand(
           binary,
           ["--mode", "rpc", ...(options.launchArgs ?? [])],
-          { cwd: options.cwd, env: options.environment },
+          { env: options.environment },
         );
         return yield* spawner.spawn(
           ChildProcess.make(spawnCommand.command, spawnCommand.args, {
@@ -163,13 +165,10 @@ export const makePhiRpcTransport = Effect.fn("makePhiRpcTransport")(function* (
     if (line.trim().length === 0) return;
     frameNumber += 1;
 
-    let decoded: unknown;
-    try {
-      decoded = JSON.parse(line);
-    } catch {
-      return yield* new PhiRpcMalformedFrameError({ frameNumber });
-    }
-    if (!Predicate.isRecord(decoded)) {
+    const decoded = yield* decodeJson(line).pipe(
+      Effect.mapError(() => new PhiRpcMalformedFrameError({ frameNumber })),
+    );
+    if (!Predicate.isObject(decoded)) {
       return yield* new PhiRpcMalformedFrameError({ frameNumber });
     }
 
@@ -219,7 +218,7 @@ export const makePhiRpcTransport = Effect.fn("makePhiRpcTransport")(function* (
   }).pipe(
     Effect.catch((error) =>
       failTerminal(
-        PhiRpcMalformedFrameError.is(error)
+        error._tag === "PhiRpcMalformedFrameError"
           ? error
           : new PhiRpcTransportError({
               operation: "stdout",
@@ -280,7 +279,16 @@ export const makePhiRpcTransport = Effect.fn("makePhiRpcTransport")(function* (
       const id = `t3-phi-${requestSequence}`;
       const deferred = yield* Deferred.make<PhiRpcResponse, PhiRpcFailure>();
       pending.set(id, deferred);
-      const frame = encoder.encode(`${JSON.stringify({ ...command, id })}\n`);
+      const encoded = yield* encodeJson({ ...command, id }).pipe(
+        Effect.mapError(
+          () =>
+            new PhiRpcTransportError({
+              operation: "stdin",
+              detail: "Failed to encode a Phi RPC command.",
+            }),
+        ),
+      );
+      const frame = encoder.encode(`${encoded}\n`);
 
       const written = yield* writeLock.withPermit(
         Stream.run(Stream.make(frame), child.stdin).pipe(
