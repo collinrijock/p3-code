@@ -6,13 +6,14 @@ import {
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import * as Stream from "effect/Stream";
 import { ChildProcessSpawner } from "effect/unstable/process";
 
 import * as BackgroundPolicy from "../../background/BackgroundPolicy.ts";
+import { ServerConfig } from "../../config.ts";
 import { ServerSettingsService } from "../../serverSettings.ts";
 import type * as TextGeneration from "../../textGeneration/TextGeneration.ts";
-import { ProviderAdapterRequestError, ProviderDriverError } from "../Errors.ts";
+import { ProviderDriverError } from "../Errors.ts";
+import { makePhiAdapter } from "../Layers/PhiAdapter.ts";
 import { buildInitialPhiProviderSnapshot, checkPhiProviderStatus } from "../Layers/PhiProvider.ts";
 import { makeManagedServerProvider } from "../makeManagedServerProvider.ts";
 import {
@@ -28,7 +29,6 @@ import {
   makeProviderSnapshotSettingsSource,
   type ProviderSnapshotSettings,
 } from "../providerUpdateSettings.ts";
-import type { ProviderAdapterShape } from "../Services/ProviderAdapter.ts";
 
 const DRIVER_KIND = ProviderDriverKind.make("phi");
 const decodePhiSettings = Schema.decodeSync(PhiSettings);
@@ -36,41 +36,14 @@ const maintenanceCapabilities = makeManualOnlyProviderMaintenanceCapabilities({
   provider: DRIVER_KIND,
   packageName: null,
 });
-const RUNTIME_UNAVAILABLE_DETAIL =
-  "Phi session runtime is not available yet; this driver currently supports provider discovery only.";
+const TEXT_GENERATION_UNAVAILABLE_DETAIL =
+  "Phi text-generation helpers are not available yet; use a supported provider for generated repository metadata.";
 
 export type PhiDriverEnv =
   | BackgroundPolicy.BackgroundPolicy
   | ChildProcessSpawner.ChildProcessSpawner
+  | ServerConfig
   | ServerSettingsService;
-
-const unavailableAdapterOperation = (method: string) =>
-  Effect.fail(
-    new ProviderAdapterRequestError({
-      provider: DRIVER_KIND,
-      method,
-      detail: RUNTIME_UNAVAILABLE_DETAIL,
-    }),
-  );
-
-function makeUnavailablePhiAdapter(): ProviderAdapterShape<ProviderAdapterRequestError> {
-  return {
-    provider: DRIVER_KIND,
-    capabilities: { sessionModelSwitch: "unsupported" },
-    startSession: () => unavailableAdapterOperation("startSession"),
-    sendTurn: () => unavailableAdapterOperation("sendTurn"),
-    interruptTurn: () => unavailableAdapterOperation("interruptTurn"),
-    respondToRequest: () => unavailableAdapterOperation("respondToRequest"),
-    respondToUserInput: () => unavailableAdapterOperation("respondToUserInput"),
-    stopSession: () => unavailableAdapterOperation("stopSession"),
-    listSessions: () => Effect.succeed([]),
-    hasSession: () => Effect.succeed(false),
-    readThread: () => unavailableAdapterOperation("readThread"),
-    rollbackThread: () => unavailableAdapterOperation("rollbackThread"),
-    stopAll: () => Effect.void,
-    streamEvents: Stream.empty,
-  };
-}
 
 function makeUnavailablePhiTextGeneration(): TextGeneration.TextGeneration["Service"] {
   const unavailable = (
@@ -83,7 +56,7 @@ function makeUnavailablePhiTextGeneration(): TextGeneration.TextGeneration["Serv
     Effect.fail(
       new TextGenerationError({
         operation,
-        detail: RUNTIME_UNAVAILABLE_DETAIL,
+        detail: TEXT_GENERATION_UNAVAILABLE_DETAIL,
       }),
     );
   return {
@@ -134,6 +107,10 @@ export const PhiDriver: ProviderDriver<PhiSettings, PhiDriverEnv> = {
         continuationGroupKey: continuationIdentity.continuationKey,
       });
       const effectiveConfig = { ...config, enabled } satisfies PhiSettings;
+      const adapter = yield* makePhiAdapter(effectiveConfig, {
+        instanceId,
+        environment: processEnv,
+      });
       const checkProvider = checkPhiProviderStatus(effectiveConfig, processEnv).pipe(
         Effect.map(stampIdentity),
         Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
@@ -167,7 +144,7 @@ export const PhiDriver: ProviderDriver<PhiSettings, PhiDriverEnv> = {
         accentColor,
         enabled,
         snapshot,
-        adapter: makeUnavailablePhiAdapter(),
+        adapter,
         textGeneration: makeUnavailablePhiTextGeneration(),
       } satisfies ProviderInstance;
     }),

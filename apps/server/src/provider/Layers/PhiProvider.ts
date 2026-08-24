@@ -63,12 +63,12 @@ export interface PhiCliProbe {
   readonly message?: string;
 }
 
-function binaryCandidates(settings: PhiSettings): ReadonlyArray<string> {
+export function phiBinaryCandidates(settings: PhiSettings): ReadonlyArray<string> {
   const configured = settings.binaryPath.trim();
   return configured ? [configured] : ["phi", "pi"];
 }
 
-function withPhiHome(environment: NodeJS.ProcessEnv, homePath: string): NodeJS.ProcessEnv {
+export function withPhiHome(environment: NodeJS.ProcessEnv, homePath: string): NodeJS.ProcessEnv {
   if (!homePath) return environment;
   return {
     ...environment,
@@ -160,7 +160,7 @@ export const probePhiCli = <R>(
     let selectedBinary: string | undefined;
     let versionOutcome: PhiProbeCommandOutcome | undefined;
 
-    for (const binary of binaryCandidates(settings)) {
+    for (const binary of phiBinaryCandidates(settings)) {
       const outcome = yield* run({
         binary,
         args: ["--version"],
