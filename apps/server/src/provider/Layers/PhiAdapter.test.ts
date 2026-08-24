@@ -26,7 +26,7 @@ const settings = (overrides: Partial<PhiSettings> = {}): PhiSettings => ({
 const threadId = (value: string) => ThreadId.make(value);
 const provider = ProviderDriverKind.make("phi");
 const instanceId = ProviderInstanceId.make("phi");
-const serverConfigTestLayer = ServerConfig.layerTest("/default-workspace", "/attachments").pipe(
+const serverConfigTestLayer = ServerConfig.layerTest(process.cwd(), process.cwd()).pipe(
   Layer.provide(NodeServices.layer),
 );
 
