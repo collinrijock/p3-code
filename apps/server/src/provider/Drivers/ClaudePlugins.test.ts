@@ -3,14 +3,17 @@ import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as Schema from "effect/Schema";
 
 import { discoverEnabledClaudePluginPaths } from "./ClaudePlugins.ts";
+
+const encodeUnknownJson = Schema.encodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
 
 const writeJson = Effect.fn(function* (filePath: string, value: unknown) {
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   yield* fileSystem.makeDirectory(path.dirname(filePath), { recursive: true });
-  yield* fileSystem.writeFileString(filePath, JSON.stringify(value));
+  yield* fileSystem.writeFileString(filePath, encodeUnknownJson(value));
 });
 
 const makePluginDirectory = Effect.fn(function* (pluginPath: string) {

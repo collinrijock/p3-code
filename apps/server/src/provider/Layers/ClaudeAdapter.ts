@@ -4144,7 +4144,14 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
         ...(ultracode ? { ultracode: true } : {}),
       };
       const userPluginPaths = claudeSettings.loadUserPlugins
-        ? yield* discoverEnabledClaudePluginPaths(claudeSettings, input.cwd, claudeEnvironment)
+        ? yield* discoverEnabledClaudePluginPaths(
+            claudeSettings,
+            input.cwd,
+            claudeEnvironment,
+          ).pipe(
+            Effect.provideService(FileSystem.FileSystem, fileSystem),
+            Effect.provideService(Path.Path, path),
+          )
         : [];
       const mcpSession = McpProviderSession.readMcpProviderSession(input.threadId);
       // The attachments dir grant lets the agent Read/copy pasted images at

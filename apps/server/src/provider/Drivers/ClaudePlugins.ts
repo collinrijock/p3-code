@@ -75,7 +75,7 @@ function pluginInstalls(registry: unknown, pluginId: string): ReadonlyArray<Plug
     .flatMap((value, sourceIndex) => {
       const entry = asRecord(value);
       const installPath = entry?.installPath;
-      if (typeof installPath !== "string" || installPath.trim().length === 0) {
+      if (!entry || typeof installPath !== "string" || installPath.trim().length === 0) {
         return [];
       }
       return [
