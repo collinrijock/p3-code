@@ -7,7 +7,7 @@ orchestration layer does not know which one is behind a thread.
 
 ## Built-in drivers
 
-[`builtInDrivers.ts`][drivers] exports `BUILT_IN_DRIVERS` with five entries:
+[`builtInDrivers.ts`][drivers] exports `BUILT_IN_DRIVERS` with six entries:
 
 | Driver kind   | Driver source                           |
 | ------------- | --------------------------------------- |
@@ -16,6 +16,7 @@ orchestration layer does not know which one is behind a thread.
 | `cursor`      | [`Drivers/CursorDriver.ts`][cursor]     |
 | `grok`        | [`Drivers/GrokDriver.ts`][grok]         |
 | `opencode`    | [`Drivers/OpenCodeDriver.ts`][opencode] |
+| `phi`         | [`Drivers/PhiDriver.ts`][phi]           |
 
 Each driver declares its `driverKind`, a `configSchema`, and a `create` function that builds an
 adapter in a child scope. Adapter implementations live beside them in
@@ -38,6 +39,18 @@ directory to route session and turn operations for a thread, so callers name a t
 
 Adding a driver means writing the driver plus adapter and adding it to `BUILT_IN_DRIVERS`. No
 orchestration, contract, or client change is required for the common case.
+
+## Phi support
+
+Phi uses the Phi/Pi JSONL RPC transport over ordinary child-process stdin and stdout. Each active
+T3 thread owns one scoped RPC process. The adapter currently supports session start and resume
+identity, text prompts, assistant text streaming, interruption, and process cleanup.
+
+Tool lifecycle events, extension UI permission requests, structured user input, durable history
+reconstruction, rollback, diff synthesis, and feedback upload are intentionally unsupported. The
+adapter ignores provider tool events and returns explicit typed errors for unsupported adapter
+operations. Interactive Phi extensions can therefore wait indefinitely and should not be used
+until permission and user-input mapping lands.
 
 ## How provider work is requested
 
@@ -81,6 +94,7 @@ when a request opens (approval) or user input is requested, via
 [cursor]: ../../apps/server/src/provider/Drivers/CursorDriver.ts
 [grok]: ../../apps/server/src/provider/Drivers/GrokDriver.ts
 [opencode]: ../../apps/server/src/provider/Drivers/OpenCodeDriver.ts
+[phi]: ../../apps/server/src/provider/Drivers/PhiDriver.ts
 [adapter]: ../../apps/server/src/provider/Services/ProviderAdapter.ts
 [instances]: ../../apps/server/src/provider/Services/ProviderInstanceRegistry.ts
 [registry]: ../../apps/server/src/provider/Services/ProviderAdapterRegistry.ts
