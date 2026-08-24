@@ -169,6 +169,7 @@ it.effect("maps interruptTurn to abort and emits turn.aborted", () =>
         Stream.runCollect,
         Effect.forkChild,
       );
+      yield* Effect.yieldNow;
       const turn = yield* adapter.sendTurn({ threadId: id, input: "Keep working" });
       yield* adapter.interruptTurn(id, turn.turnId);
 
@@ -207,6 +208,7 @@ it.effect("turns a child crash into redacted canonical failure events", () =>
         Stream.runCollect,
         Effect.forkChild,
       );
+      yield* Effect.yieldNow;
       yield* adapter.sendTurn({ threadId: id, input: "Do not echo this prompt" });
       const child = fake.children[0];
       NodeAssert.ok(child);

@@ -45,6 +45,7 @@ export const makeFakePhiSpawner = Effect.fn("makeFakePhiSpawner")(function* () {
       const stderr = yield* Queue.unbounded<Uint8Array>();
       const exitCode = yield* Deferred.make<ChildProcessSpawner.ExitCode>();
       const commands: Array<FakePhiCommand> = [];
+      const sessionNumber = children.length + 1;
       const commandDecoder = new TextDecoder();
       let inputBuffer = "";
       let wasKilled = false;
@@ -92,8 +93,8 @@ export const makeFakePhiSpawner = Effect.fn("makeFakePhiSpawner")(function* () {
                     command: type,
                     success: true,
                     data: {
-                      sessionId: `session-${children.length + 1}`,
-                      sessionFile: `/tmp/phi-session-${children.length + 1}.jsonl`,
+                      sessionId: `session-${sessionNumber}`,
+                      sessionFile: `/tmp/phi-session-${sessionNumber}.jsonl`,
                     },
                   }
                 : {
