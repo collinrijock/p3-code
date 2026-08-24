@@ -183,6 +183,44 @@ it.effect("maps interruptTurn to abort and emits turn.aborted", () =>
   ),
 );
 
+it.effect("rejects concurrent turns and model changes without sending another prompt", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const fake = yield* makeFakePhiSpawner();
+      const adapter = yield* provideRuntime(
+        makePhiAdapter(settings(), { instanceId }),
+        fake.service,
+      );
+      const id = threadId("thread-turn-guard");
+      yield* adapter.startSession({
+        provider,
+        threadId: id,
+        runtimeMode: "full-access",
+        modelSelection: { instanceId, model: "example/model-one" },
+      });
+      const active = yield* adapter.sendTurn({ threadId: id, input: "First prompt" });
+      const concurrentError = yield* adapter
+        .sendTurn({ threadId: id, input: "Second prompt" })
+        .pipe(Effect.flip);
+      NodeAssert.equal(concurrentError._tag, "ProviderAdapterRequestError");
+
+      yield* adapter.interruptTurn(id, active.turnId);
+      const modelError = yield* adapter
+        .sendTurn({
+          threadId: id,
+          input: "Use another model",
+          modelSelection: { instanceId, model: "example/model-two" },
+        })
+        .pipe(Effect.flip);
+      NodeAssert.equal(modelError._tag, "ProviderAdapterValidationError");
+      NodeAssert.equal(
+        fake.children[0]?.commands.filter((command) => command.type === "prompt").length,
+        1,
+      );
+    }),
+  ),
+);
+
 it.effect("turns a child crash into redacted canonical failure events", () =>
   Effect.scoped(
     Effect.gen(function* () {

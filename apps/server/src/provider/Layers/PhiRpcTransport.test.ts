@@ -2,6 +2,7 @@ import * as NodeAssert from "node:assert/strict";
 import { it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
+import * as PlatformError from "effect/PlatformError";
 import * as Stream from "effect/Stream";
 import { ChildProcessSpawner } from "effect/unstable/process";
 
@@ -93,6 +94,37 @@ it.effect("correlates command responses while keeping events on the event stream
       NodeAssert.equal(response.command, "get_state");
       NodeAssert.equal(events[0]?.type, "agent_start");
       NodeAssert.equal(child.commands[0]?.type, "get_state");
+    }),
+  ),
+);
+
+it.effect("falls back from a missing phi binary to pi", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const fake = yield* makeFakePhiSpawner();
+      const attempts: string[] = [];
+      const fallbackSpawner = ChildProcessSpawner.make((command) => {
+        const binary = command._tag === "StandardCommand" ? command.command : "";
+        attempts.push(binary);
+        return binary === "phi"
+          ? Effect.fail(
+              PlatformError.systemError({
+                _tag: "NotFound",
+                module: "ChildProcess",
+                method: "spawn",
+              }),
+            )
+          : fake.service.spawn(command);
+      });
+      const transport = yield* makePhiRpcTransport({
+        binaries: ["phi", "pi"],
+        cwd: "/workspace",
+        environment: {},
+      }).pipe(Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, fallbackSpawner));
+
+      NodeAssert.equal(transport.selectedBinary, "pi");
+      NodeAssert.deepEqual(attempts, ["phi", "pi"]);
+      NodeAssert.equal(fake.children[0]?.command.command, "pi");
     }),
   ),
 );
