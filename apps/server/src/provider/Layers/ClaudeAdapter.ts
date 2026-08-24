@@ -77,6 +77,7 @@ import { ServerConfig } from "../../config.ts";
 import * as McpProviderSession from "../../mcp/McpProviderSession.ts";
 import { resolveClaudeSdkExecutablePath } from "../Drivers/ClaudeExecutable.ts";
 import { makeClaudeEnvironment } from "../Drivers/ClaudeHome.ts";
+import { discoverEnabledClaudePluginPaths } from "../Drivers/ClaudePlugins.ts";
 import {
   getClaudeModelCapabilities,
   isClaudeUltracodeEffort,
@@ -4142,6 +4143,9 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
         ...(fastMode ? { fastMode: true } : {}),
         ...(ultracode ? { ultracode: true } : {}),
       };
+      const userPluginPaths = claudeSettings.loadUserPlugins
+        ? yield* discoverEnabledClaudePluginPaths(claudeSettings, input.cwd, claudeEnvironment)
+        : [];
       const mcpSession = McpProviderSession.readMcpProviderSession(input.threadId);
       // The attachments dir grant lets the agent Read/copy pasted images at
       // the paths ProviderService injects into the turn text, without an
@@ -4157,6 +4161,14 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
         pathToClaudeCodeExecutable: claudeBinaryPath,
         systemPrompt: { type: "preset", preset: "claude_code" },
         settingSources: [...CLAUDE_SETTING_SOURCES],
+        ...(userPluginPaths.length > 0
+          ? {
+              plugins: userPluginPaths.map((pluginPath) => ({
+                type: "local" as const,
+                path: pluginPath,
+              })),
+            }
+          : {}),
         // `ultracode` is a Claude Code setting, not an API effort level. It is
         // normalized to `xhigh` above and paired with `settings.ultracode`.
         ...(effectiveEffort
