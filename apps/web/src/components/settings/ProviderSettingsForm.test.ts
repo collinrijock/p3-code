@@ -37,6 +37,16 @@ describe("ProviderSettingsForm helpers", () => {
     });
   });
 
+  it("exposes Phi binary and config path settings", () => {
+    const phi = DRIVER_OPTION_BY_VALUE[ProviderDriverKind.make("phi")];
+
+    expect(phi).toBeDefined();
+    expect(deriveProviderSettingsFields(phi!).map((field) => field.key)).toEqual([
+      "binaryPath",
+      "homePath",
+    ]);
+  });
+
   it("preserves unknown config keys while omitting empty configurable fields", () => {
     const opencode = DRIVER_OPTION_BY_VALUE[ProviderDriverKind.make("opencode")];
     expect(opencode).toBeDefined();
