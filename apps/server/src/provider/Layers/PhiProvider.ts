@@ -198,7 +198,7 @@ export const probePhiCli = <R>(
         message: `Phi CLI timed out while running \`${selectedBinary} --version\`.`,
       };
     }
-    if (versionOutcome._tag === "failed") {
+    if (versionOutcome._tag !== "completed") {
       return {
         installed: true,
         selectedBinary,

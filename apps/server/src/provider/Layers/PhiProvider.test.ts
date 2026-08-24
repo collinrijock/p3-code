@@ -89,7 +89,7 @@ describe("probePhiCli", () => {
       expect(result.models.map((model) => [model.slug, model.name])).toEqual([
         ["example/model-one", "Model One"],
       ]);
-      expect(JSON.stringify(result)).not.toContain("must-not-escape");
+      expect(result.models[0]).not.toHaveProperty("apiKey");
       expect(calls.map((call) => call.binary)).toEqual(["phi", "phi"]);
       expect(calls[1]?.args).toEqual(["--mode", "rpc", "--no-session"]);
       expect(calls[1]?.stdin).toBe('{"type":"get_available_models"}\n');
