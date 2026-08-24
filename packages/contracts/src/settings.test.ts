@@ -6,6 +6,7 @@ import {
   ClientSettingsSchema,
   ClientSettingsPatch,
   DEFAULT_SERVER_SETTINGS,
+  PhiSettings,
   ServerSettings,
   ServerSettingsPatch,
 } from "./settings.ts";
@@ -15,6 +16,7 @@ const decodeClientSettingsPatch = Schema.decodeUnknownSync(ClientSettingsPatch);
 const decodeServerSettings = Schema.decodeUnknownSync(ServerSettings);
 const decodeServerSettingsPatch = Schema.decodeUnknownSync(ServerSettingsPatch);
 const encodeServerSettings = Schema.encodeSync(ServerSettings);
+const decodePhiSettings = Schema.decodeUnknownSync(PhiSettings);
 
 describe("ClientSettings word wrap", () => {
   it("defaults word wrap on", () => {
@@ -174,6 +176,39 @@ describe("ServerSettings.providerInstances (slice-2 invariant)", () => {
         providerInstances: { "1bad": { driver: "codex" } },
       }),
     ).toThrow();
+  });
+});
+
+describe("PhiSettings", () => {
+  it("defaults to disabled automatic binary discovery", () => {
+    expect(decodePhiSettings({})).toEqual({
+      enabled: false,
+      binaryPath: "",
+      homePath: "",
+    });
+    expect(decodeServerSettings({}).providers.phi).toEqual({
+      enabled: false,
+      binaryPath: "",
+      homePath: "",
+    });
+  });
+
+  it("normalizes configured binary and config paths", () => {
+    expect(
+      decodeServerSettingsPatch({
+        providers: {
+          phi: {
+            enabled: true,
+            binaryPath: "  /opt/phi/bin/phi  ",
+            homePath: "  ~/.pi/work  ",
+          },
+        },
+      }).providers?.phi,
+    ).toEqual({
+      enabled: true,
+      binaryPath: "/opt/phi/bin/phi",
+      homePath: "~/.pi/work",
+    });
   });
 });
 
