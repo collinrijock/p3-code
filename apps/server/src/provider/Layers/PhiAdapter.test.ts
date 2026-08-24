@@ -1,4 +1,5 @@
 import * as NodeAssert from "node:assert/strict";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { it } from "@effect/vitest";
 import {
   ProviderDriverKind,
@@ -25,6 +26,9 @@ const settings = (overrides: Partial<PhiSettings> = {}): PhiSettings => ({
 const threadId = (value: string) => ThreadId.make(value);
 const provider = ProviderDriverKind.make("phi");
 const instanceId = ProviderInstanceId.make("phi");
+const serverConfigTestLayer = ServerConfig.layerTest("/default-workspace", "/attachments").pipe(
+  Layer.provide(NodeServices.layer),
+);
 
 const provideRuntime = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
@@ -32,7 +36,7 @@ const provideRuntime = <A, E, R>(
 ) =>
   effect.pipe(
     Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
-    Effect.provide(ServerConfig.layerTest("/default-workspace", "/attachments")),
+    Effect.provide(serverConfigTestLayer),
   );
 
 it.effect("spawns Phi RPC with cwd, config environment, title, and selected model", () =>
@@ -322,7 +326,7 @@ it.effect("can be built through a layer with the same scoped dependencies as the
     const fake = yield* makeFakePhiSpawner();
     const runtimeLayer = Layer.mergeAll(
       Layer.succeed(ChildProcessSpawner.ChildProcessSpawner, fake.service),
-      ServerConfig.layerTest("/default-workspace", "/attachments"),
+      serverConfigTestLayer,
     );
     const session = yield* Effect.scoped(
       Effect.gen(function* () {
