@@ -46,6 +46,7 @@ describe("ProviderSettingsForm helpers", () => {
       "binaryPath",
       "homePath",
       "loadUserPlugins",
+      "autoCompactWindow",
       "launchArgs",
     ]);
     expect(fields.find((field) => field.key === "loadUserPlugins")).toMatchObject({
@@ -63,6 +64,19 @@ describe("ProviderSettingsForm helpers", () => {
     expect(deriveProviderSettingsFields(phi!).map((field) => field.key)).toEqual([
       "binaryPath",
       "homePath",
+    ]);
+  });
+
+  it("shows the auto-compaction threshold for Claude providers", () => {
+    const claude = DRIVER_OPTION_BY_VALUE[ProviderDriverKind.make("claudeAgent")];
+    expect(claude).toBeDefined();
+
+    expect(deriveProviderSettingsFields(claude!).map((field) => field.key)).toEqual([
+      "binaryPath",
+      "homePath",
+      "loadUserPlugins",
+      "autoCompactWindow",
+      "launchArgs",
     ]);
   });
 
